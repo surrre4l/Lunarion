@@ -4880,33 +4880,52 @@ function Lunarion:MakeWindow(WindowConfig)
 					ZIndex = 3
 				})
 
-				local KnobOff, KnobOn, KnobStretch, KnobSize = 4, 26, 24, 14
+				-- Look: a thin flat rail with an oversized knob that overhangs it. The knob wears a "cut-out" ring in
+				-- the card color and a small core that pops open when the toggle is on. No outline, no pill track.
+				local RailWidth, RailHeight = 38, 10
+				local KnobSize, KnobStretch = 20, 28
+				local KnobOff = -4
+				local KnobOn = RailWidth - KnobSize + 4
+				local CoreSize = 8
 				local KnobToken = 0
+
+				local KnobCore = Create("Frame", {
+					Name = "Core",
+					AnchorPoint = Vector2.new(0.5, 0.5),
+					Position = UDim2.new(0.5, 0, 0.5, 0),
+					Size = UDim2.new(0, 0, 0, 0),
+					BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+					BorderSizePixel = 0
+				}, {
+					Create("UICorner", {CornerRadius = UDim.new(1, 0)})
+				})
+
+				local KnobRing = AddThemeObject(Create("UIStroke", {
+					Name = "Ring",
+					Thickness = 3
+				}), "Second")
+
 				local Knob = Create("Frame", {
 					Name = "Knob",
 					AnchorPoint = Vector2.new(0, 0.5),
 					Position = UDim2.new(0, KnobOff, 0.5, 0),
 					Size = UDim2.new(0, KnobSize, 0, KnobSize),
 					BackgroundColor3 = ThemeColor("TextDark"),
-					BorderSizePixel = 0
+					BorderSizePixel = 0,
+					ZIndex = 2
 				}, {
-					Create("UICorner", {CornerRadius = UDim.new(1, 0)})
+					Create("UICorner", {CornerRadius = UDim.new(1, 0)}),
+					KnobRing,
+					KnobCore
 				})
 
-				local TrackStroke = Create("UIStroke", {
-					Name = "TrackStroke",
-					Thickness = 1.2,
-					Color = ThemeColor("TextDark")
-				})
-
-				local Track = SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(255, 255, 255), 1, 0), {
+				local Track = SetChildren(SetProps(MakeElement("RoundFrame", ThemeColor("TextDark"), 1, 0), {
 					Name = "Track",
 					AnchorPoint = Vector2.new(1, 0.5),
-					Position = UDim2.new(1, -12, 0.5, 0),
-					Size = UDim2.new(0, 44, 0, 22),
-					BackgroundTransparency = 1
+					Position = UDim2.new(1, -16, 0.5, 0),
+					Size = UDim2.new(0, RailWidth, 0, RailHeight),
+					BackgroundTransparency = 0.75
 				}), {
-					TrackStroke,
 					Knob
 				})
 
@@ -4959,15 +4978,27 @@ function Lunarion:MakeWindow(WindowConfig)
 					local Accent = ToggleConfig.Color or ThemeColor("Accent")
 					local Off = ThemeColor("TextDark")
 					local Time = Animate and 0.3 or 0
-					Track.BackgroundColor3 = Accent -- flat fill, no gradient
-					Tw(Track, Time, Enum.EasingStyle.Quint, Enum.EasingDirection.Out, {BackgroundTransparency = On and 0 or 1})
-					Tw(TrackStroke, Time, Enum.EasingStyle.Quint, Enum.EasingDirection.Out, {Color = On and Accent or Off})
+					-- rail: faint gray when off, a soft accent tint when on
+					Tw(Track, Time, Enum.EasingStyle.Quint, Enum.EasingDirection.Out, {
+						BackgroundColor3 = On and Accent or Off,
+						BackgroundTransparency = On and 0.45 or 0.75
+					})
+					-- knob: gray when off, solid accent when on, with the core popping open inside it
 					Tw(Knob, Time, Enum.EasingStyle.Quint, Enum.EasingDirection.Out, {
-						BackgroundColor3 = On and Color3.fromRGB(255, 255, 255) or Off
+						BackgroundColor3 = On and Accent or Off
+					})
+					Tw(KnobCore, Time, Enum.EasingStyle.Quint, Enum.EasingDirection.Out, {
+						Size = On and UDim2.new(0, CoreSize, 0, CoreSize) or UDim2.new(0, 0, 0, 0)
 					})
 					if Moved ~= false then
 						MoveKnob(On, Animate)
 					end
+				end
+
+				-- the ring has to match the card color, also while the card is hovered / pressed
+				local function PaintCard(Color, Time)
+					Tw(ToggleFrame, Time, nil, nil, {BackgroundColor3 = Color})
+					Tw(KnobRing, Time, nil, nil, {Color = Color})
 				end
 
 				function Toggle:Set(Value)
@@ -4983,19 +5014,19 @@ function Lunarion:MakeWindow(WindowConfig)
 				end)
 
 				AddConnection(Click.MouseEnter, function()
-					Tw(ToggleFrame, 0.25, nil, nil, {BackgroundColor3 = Shift(ThemeColor("Second"), 6)})
+					PaintCard(Shift(ThemeColor("Second"), 6), 0.25)
 				end)
 
 				AddConnection(Click.MouseLeave, function()
-					Tw(ToggleFrame, 0.25, nil, nil, {BackgroundColor3 = ThemeColor("Second")})
+					PaintCard(ThemeColor("Second"), 0.25)
 				end)
 
 				AddConnection(Click.MouseButton1Down, function()
-					Tw(ToggleFrame, 0.12, nil, nil, {BackgroundColor3 = Shift(ThemeColor("Second"), 12)})
+					PaintCard(Shift(ThemeColor("Second"), 12), 0.12)
 				end)
 
 				AddConnection(Click.MouseButton1Up, function()
-					Tw(ToggleFrame, 0.25, nil, nil, {BackgroundColor3 = Shift(ThemeColor("Second"), 6)})
+					PaintCard(Shift(ThemeColor("Second"), 6), 0.25)
 				end)
 
 				AddConnection(Click.MouseButton1Click, function()
@@ -6106,6 +6137,10 @@ function Lunarion:MakeWindow(WindowConfig)
 				return Bind
 			end
 
+			-- Lunarion color picker. Instead of the usual saturation/value square + hue bar it uses three channel
+			-- sliders (H, S, V) whose tracks repaint live to show what dragging them will do, a row of preset
+			-- swatches and a hex field. It uses no image assets at all, only gradients.
+			-- Optional config: Presets = {Color3, ...} replaces the swatch row.
 			function ElementFunction:AddColorpicker(ColorpickerConfig)
 				ColorpickerConfig = ColorpickerConfig or {}
 				ColorpickerConfig.Name = ColorpickerConfig.Name or "Colorpicker"
@@ -6117,28 +6152,62 @@ function Lunarion:MakeWindow(WindowConfig)
 				local ColorH, ColorS, ColorV = Color3.toHSV(ColorpickerConfig.Default)
 				local Colorpicker = {Value = ColorpickerConfig.Default, Toggled = false, Type = "Colorpicker", Save = ColorpickerConfig.Save}
 
-				local ClosedHeight, OpenHeight = 38, 216
+				local ClosedHeight, OpenHeight = 38, 206
 
-				-- closed state: a small chip that shows the current color and its hex code
-				local ChipText = Create("TextLabel", {
-					Name = "Hex",
-					Size = UDim2.new(1, 0, 1, 0),
-					BackgroundTransparency = 1,
-					FontFace = Fonts.Body,
-					TextSize = 11,
-					Text = "#FFFFFF",
-					TextColor3 = Color3.fromRGB(20, 20, 20)
-				})
+				local Presets = ColorpickerConfig.Presets or {
+					Color3.fromRGB(255, 82, 82),
+					Color3.fromRGB(255, 159, 67),
+					Color3.fromRGB(254, 211, 48),
+					Color3.fromRGB(46, 213, 115),
+					Color3.fromRGB(0, 206, 201),
+					Color3.fromRGB(72, 126, 255),
+					Color3.fromRGB(162, 89, 255),
+					Color3.fromRGB(255, 255, 255)
+				}
 
-				local Chip = SetChildren(SetProps(MakeElement("RoundFrame", Colorpicker.Value, 0, 5), {
-					Name = "Chip",
+				local function Byte(Number)
+					return math.floor(Number * 255 + 0.5)
+				end
+
+				local function ToHex(Color)
+					return string.format("#%02X%02X%02X", Byte(Color.R), Byte(Color.G), Byte(Color.B))
+				end
+
+				-- sets properties right away and stops any tween still running on them, so dragging never fights a tween
+				local function Snap(Object, Props)
+					local Running = ActiveTweens[Object]
+					if Running then
+						for Index = #Running, 1, -1 do
+							Running[Index].Tween:Cancel()
+							Running[Index] = nil
+						end
+					end
+					for Property, Value in pairs(Props) do
+						Object[Property] = Value
+					end
+				end
+
+				-- closed state: the label, then the hex code and a round swatch of the current color
+				local Swatch = SetChildren(SetProps(MakeElement("RoundFrame", Colorpicker.Value, 1, 0), {
+					Name = "Swatch",
 					AnchorPoint = Vector2.new(1, 0.5),
 					Position = UDim2.new(1, -12, 0.5, 0),
-					Size = UDim2.new(0, 68, 0, 22)
+					Size = UDim2.new(0, 22, 0, 22)
 				}), {
-					AddThemeObject(MakeElement("Stroke"), "Stroke"),
-					ChipText
+					AddThemeObject(MakeElement("Stroke"), "Stroke")
 				})
+
+				local HexLabel = AddThemeObject(Create("TextLabel", {
+					Name = "Hex",
+					AnchorPoint = Vector2.new(1, 0.5),
+					Position = UDim2.new(1, -42, 0.5, 0),
+					Size = UDim2.new(0, 64, 1, 0),
+					BackgroundTransparency = 1,
+					FontFace = Fonts.Body,
+					TextSize = 12,
+					Text = "#FFFFFF",
+					TextXAlignment = Enum.TextXAlignment.Right
+				}), "TextDark")
 
 				local Click = SetProps(MakeElement("Button"), {
 					Size = UDim2.new(1, 0, 1, 0),
@@ -6150,12 +6219,13 @@ function Lunarion:MakeWindow(WindowConfig)
 					Name = "Header"
 				}), {
 					AddThemeObject(SetProps(MakeElement("Label", ColorpickerConfig.Name, 15), {
-						Size = UDim2.new(1, -90, 1, 0),
+						Size = UDim2.new(1, -120, 1, 0),
 						Position = UDim2.new(0, 12, 0, 0),
 						FontFace = Fonts.Body,
 						Name = "Content"
 					}), "Text"),
-					Chip,
+					HexLabel,
+					Swatch,
 					Click
 				})
 
@@ -6166,111 +6236,172 @@ function Lunarion:MakeWindow(WindowConfig)
 					Name = "Line"
 				}), "Stroke")
 
-				-- open state: saturation/value square, hue slider, R G B and hex inputs
-				local SVKnob = Create("ImageLabel", {
-					Size = UDim2.new(0, 18, 0, 18),
-					AnchorPoint = Vector2.new(0.5, 0.5),
-					BackgroundTransparency = 1,
-					Image = "http://www.roblox.com/asset/?id=4805639000"
-				})
+				-- open state, row 1-3: one slider per channel. The track is a gradient, the handle a ring filled with the color.
+				local Sliders = {}
 
-				local SVBox = Create("ImageLabel", {
-					Name = "SV",
-					Size = UDim2.new(1, 0, 0, 96),
-					Image = "rbxassetid://4155801252",
-					BackgroundColor3 = Color3.fromHSV(ColorH, 1, 1),
-					BorderSizePixel = 0
-				}, {
-					Create("UICorner", {CornerRadius = UDim.new(0, 5)}),
-					SVKnob
-				})
+				local function MakeSlider(Key, Letter, Y)
+					local Gradient = Create("UIGradient", {})
 
-				local HueKnob = Create("Frame", {
-					Size = UDim2.new(0, 16, 0, 16),
-					AnchorPoint = Vector2.new(0.5, 0.5),
-					Position = UDim2.new(ColorH, 0, 0.5, 0),
-					BackgroundColor3 = Color3.fromHSV(ColorH, 1, 1),
-					BorderSizePixel = 0,
-					ZIndex = 2
-				}, {
-					Create("UICorner", {CornerRadius = UDim.new(1, 0)}),
-					Create("UIStroke", {Color = Color3.fromRGB(255, 255, 255), Thickness = 2})
-				})
+					local Handle = Create("Frame", {
+						Name = "Handle",
+						AnchorPoint = Vector2.new(0.5, 0.5),
+						Position = UDim2.new(0, 0, 0.5, 0),
+						Size = UDim2.new(0, 16, 0, 16),
+						BorderSizePixel = 0,
+						ZIndex = 2
+					}, {
+						Create("UICorner", {CornerRadius = UDim.new(1, 0)}),
+						Create("UIStroke", {Color = Color3.fromRGB(255, 255, 255), Thickness = 2.5})
+					})
 
-				local HueBar = Create("Frame", {
-					Name = "Hue",
-					Position = UDim2.new(0, 0, 0, 106),
-					Size = UDim2.new(1, 0, 0, 14),
-					BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-					BorderSizePixel = 0
-				}, {
-					Create("UICorner", {CornerRadius = UDim.new(1, 0)}),
-					Create("UIGradient", {
-						Color = ColorSequence.new({
-							ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
-							ColorSequenceKeypoint.new(1 / 6, Color3.fromRGB(255, 255, 0)),
-							ColorSequenceKeypoint.new(2 / 6, Color3.fromRGB(0, 255, 0)),
-							ColorSequenceKeypoint.new(3 / 6, Color3.fromRGB(0, 255, 255)),
-							ColorSequenceKeypoint.new(4 / 6, Color3.fromRGB(0, 0, 255)),
-							ColorSequenceKeypoint.new(5 / 6, Color3.fromRGB(255, 0, 255)),
-							ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 0))
-						})
-					}),
-					HueKnob
-				})
+					local Track = Create("Frame", {
+						Name = "Track",
+						Position = UDim2.new(0, 22, 0.5, -4),
+						Size = UDim2.new(1, -66, 0, 8),
+						BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+						BorderSizePixel = 0
+					}, {
+						Create("UICorner", {CornerRadius = UDim.new(1, 0)}),
+						Gradient,
+						Handle
+					})
 
-				local function MakeInput(Placeholder, Width, Order)
-					local Box = AddThemeObject(Create("TextBox", {
-						Size = UDim2.new(1, -8, 1, 0),
-						Position = UDim2.new(0, 4, 0, 0),
+					-- invisible hit area, taller than the track so it is easy to grab (also on touch)
+					local Hit = Create("Frame", {
+						Name = "Hit",
+						Position = UDim2.new(0, 14, 0, 0),
+						Size = UDim2.new(1, -50, 1, 0),
+						BackgroundTransparency = 1,
+						ZIndex = 3
+					})
+
+					local LetterLabel = AddThemeObject(Create("TextLabel", {
+						Name = "Letter",
+						Size = UDim2.new(0, 16, 1, 0),
 						BackgroundTransparency = 1,
 						FontFace = Fonts.Body,
 						TextSize = 12,
-						Text = "",
-						PlaceholderText = Placeholder,
-						PlaceholderColor3 = Color3.fromRGB(140, 140, 140),
-						ClearTextOnFocus = false,
-						TextXAlignment = Enum.TextXAlignment.Center
+						Text = Letter,
+						TextXAlignment = Enum.TextXAlignment.Left
+					}), "TextDark")
+
+					local ValueLabel = AddThemeObject(Create("TextLabel", {
+						Name = "Value",
+						AnchorPoint = Vector2.new(1, 0),
+						Position = UDim2.new(1, 0, 0, 0),
+						Size = UDim2.new(0, 34, 1, 0),
+						BackgroundTransparency = 1,
+						FontFace = Fonts.Body,
+						TextSize = 12,
+						Text = "0",
+						TextXAlignment = Enum.TextXAlignment.Right
 					}), "Text")
-					local Holder = AddThemeObject(SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(255, 255, 255), 0, 5), {
-						Size = Width,
-						LayoutOrder = Order,
-						Name = Placeholder
+
+					local Row = SetChildren(SetProps(MakeElement("TFrame"), {
+						Name = "Slider" .. Letter,
+						Position = UDim2.new(0, 0, 0, Y),
+						Size = UDim2.new(1, 0, 0, 20)
 					}), {
-						AddThemeObject(MakeElement("Stroke"), "Stroke"),
-						Box
-					}), "Main")
-					return Holder, Box
+						LetterLabel,
+						Track,
+						ValueLabel,
+						Hit
+					})
+
+					Sliders[Key] = {Row = Row, Track = Track, Gradient = Gradient, Handle = Handle, Value = ValueLabel, Hit = Hit}
+					return Row
 				end
 
-				local RHolder, RBox = MakeInput("R", UDim2.new(0.2, -5, 1, 0), 1)
-				local GHolder, GBox = MakeInput("G", UDim2.new(0.2, -5, 1, 0), 2)
-				local BHolder, BBox = MakeInput("B", UDim2.new(0.2, -5, 1, 0), 3)
-				local HexHolder, HexBox = MakeInput("HEX", UDim2.new(0.4, -3, 1, 0), 4)
+				local HueRow = MakeSlider("H", "H", 0)
+				local SatRow = MakeSlider("S", "S", 28)
+				local ValRow = MakeSlider("V", "V", 56)
 
-				local Inputs = SetChildren(SetProps(MakeElement("TFrame"), {
-					Position = UDim2.new(0, 0, 0, 130),
-					Size = UDim2.new(1, 0, 0, 26),
-					Name = "Inputs"
+				Sliders.H.Gradient.Color = ColorSequence.new({
+					ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
+					ColorSequenceKeypoint.new(1 / 6, Color3.fromRGB(255, 255, 0)),
+					ColorSequenceKeypoint.new(2 / 6, Color3.fromRGB(0, 255, 0)),
+					ColorSequenceKeypoint.new(3 / 6, Color3.fromRGB(0, 255, 255)),
+					ColorSequenceKeypoint.new(4 / 6, Color3.fromRGB(0, 0, 255)),
+					ColorSequenceKeypoint.new(5 / 6, Color3.fromRGB(255, 0, 255)),
+					ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 0))
+				})
+
+				-- row 4: preset swatches
+				local PresetRow = SetChildren(SetProps(MakeElement("TFrame"), {
+					Name = "Presets",
+					Position = UDim2.new(0, 0, 0, 88),
+					Size = UDim2.new(1, 0, 0, 22)
 				}), {
 					SetProps(MakeElement("List", 0, 6), {
 						FillDirection = Enum.FillDirection.Horizontal,
 						VerticalAlignment = Enum.VerticalAlignment.Center
-					}),
-					RHolder,
-					GHolder,
-					BHolder,
-					HexHolder
+					})
 				})
+
+				local PresetTiles = {}
+				local PresetCount = #Presets
+				for Index, PresetColor in ipairs(Presets) do
+					local Ring = Create("UIStroke", {
+						Thickness = 1,
+						Color = ThemeColor("Stroke")
+					})
+					local TileButton = SetProps(MakeElement("Button"), {
+						Size = UDim2.new(1, 0, 1, 0)
+					})
+					local Tile = SetChildren(SetProps(MakeElement("RoundFrame", PresetColor, 0, 6), {
+						Name = "Preset" .. Index,
+						LayoutOrder = Index,
+						Size = UDim2.new(1 / PresetCount, -6 * (PresetCount - 1) / PresetCount, 1, 0),
+						Parent = PresetRow
+					}), {
+						Ring,
+						TileButton
+					})
+					table.insert(PresetTiles, {Color = PresetColor, Ring = Ring, Button = TileButton, Selected = false})
+				end
+
+				-- row 5: hex field
+				local HexBox = AddThemeObject(Create("TextBox", {
+					Size = UDim2.new(1, -60, 1, 0),
+					Position = UDim2.new(0, 50, 0, 0),
+					BackgroundTransparency = 1,
+					FontFace = Fonts.Body,
+					TextSize = 12,
+					Text = "",
+					PlaceholderText = "#RRGGBB",
+					PlaceholderColor3 = Color3.fromRGB(140, 140, 140),
+					ClearTextOnFocus = false,
+					TextXAlignment = Enum.TextXAlignment.Left
+				}), "Text")
+
+				local HexHolder = AddThemeObject(SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(255, 255, 255), 0, 6), {
+					Name = "HexInput",
+					Position = UDim2.new(0, 0, 0, 120),
+					Size = UDim2.new(1, 0, 0, 26)
+				}), {
+					AddThemeObject(MakeElement("Stroke"), "Stroke"),
+					AddThemeObject(Create("TextLabel", {
+						Size = UDim2.new(0, 36, 1, 0),
+						Position = UDim2.new(0, 10, 0, 0),
+						BackgroundTransparency = 1,
+						FontFace = Fonts.Body,
+						TextSize = 12,
+						Text = "HEX",
+						TextXAlignment = Enum.TextXAlignment.Left
+					}), "TextDark"),
+					HexBox
+				}), "Main")
 
 				local Body = SetChildren(SetProps(MakeElement("TFrame"), {
 					Position = UDim2.new(0, 12, 0, 48),
-					Size = UDim2.new(1, -24, 0, 156),
+					Size = UDim2.new(1, -24, 0, 146),
 					Name = "Body"
 				}), {
-					SVBox,
-					HueBar,
-					Inputs
+					HueRow,
+					SatRow,
+					ValRow,
+					PresetRow,
+					HexHolder
 				})
 
 				local ColorpickerFrame = AddThemeObject(SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(255, 255, 255), 0, 10), {
@@ -6284,25 +6415,51 @@ function Lunarion:MakeWindow(WindowConfig)
 					AddThemeObject(MakeElement("Stroke"), "Stroke")
 				}), "Second")
 
-				local function ToHex(Color)
-					return string.format("#%02X%02X%02X", math.floor(Color.R * 255 + 0.5), math.floor(Color.G * 255 + 0.5), math.floor(Color.B * 255 + 0.5))
+				local function PlaceHandle(Key, Alpha, Color, Animate)
+					local Handle = Sliders[Key].Handle
+					local Goal = {Position = UDim2.new(Alpha, 0, 0.5, 0), BackgroundColor3 = Color}
+					if Animate then
+						Tw(Handle, 0.2, nil, nil, Goal)
+					else
+						Snap(Handle, Goal)
+					end
 				end
 
-				local function Refresh(Fire)
+				-- Animate = true eases the handles to their new spot (typed / preset / Set), false snaps them (dragging)
+				local function Refresh(Fire, Animate)
 					local Color = Color3.fromHSV(ColorH, ColorS, ColorV)
 					Colorpicker.Value = Color
-					SVBox.BackgroundColor3 = Color3.fromHSV(ColorH, 1, 1)
-					SVKnob.Position = UDim2.new(ColorS, 0, 1 - ColorV, 0)
-					HueKnob.Position = UDim2.new(ColorH, 0, 0.5, 0)
-					HueKnob.BackgroundColor3 = Color3.fromHSV(ColorH, 1, 1)
-					Chip.BackgroundColor3 = Color
-					ChipText.Text = ToHex(Color)
-					local Luminance = Color.R * 0.3 + Color.G * 0.59 + Color.B * 0.11
-					ChipText.TextColor3 = Luminance > 0.55 and Color3.fromRGB(20, 20, 20) or Color3.fromRGB(245, 245, 245)
-					RBox.Text = tostring(math.floor(Color.R * 255 + 0.5))
-					GBox.Text = tostring(math.floor(Color.G * 255 + 0.5))
-					BBox.Text = tostring(math.floor(Color.B * 255 + 0.5))
-					HexBox.Text = ToHex(Color)
+					local Hex = ToHex(Color)
+
+					Swatch.BackgroundColor3 = Color
+					HexLabel.Text = Hex
+					if not HexBox:IsFocused() then
+						HexBox.Text = Hex
+					end
+
+					-- the tracks show what each slider will do from the current color
+					Sliders.S.Gradient.Color = ColorSequence.new(Color3.fromHSV(ColorH, 0, ColorV), Color3.fromHSV(ColorH, 1, ColorV))
+					Sliders.V.Gradient.Color = ColorSequence.new(Color3.fromRGB(0, 0, 0), Color3.fromHSV(ColorH, ColorS, 1))
+
+					PlaceHandle("H", ColorH, Color3.fromHSV(ColorH, 1, 1), Animate)
+					PlaceHandle("S", ColorS, Color, Animate)
+					PlaceHandle("V", ColorV, Color, Animate)
+
+					Sliders.H.Value.Text = tostring(math.floor(ColorH * 360 + 0.5))
+					Sliders.S.Value.Text = tostring(math.floor(ColorS * 100 + 0.5))
+					Sliders.V.Value.Text = tostring(math.floor(ColorV * 100 + 0.5))
+
+					for _, Tile in ipairs(PresetTiles) do
+						local Match = Byte(Tile.Color.R) == Byte(Color.R) and Byte(Tile.Color.G) == Byte(Color.G) and Byte(Tile.Color.B) == Byte(Color.B)
+						if Match ~= Tile.Selected then
+							Tile.Selected = Match
+							Tw(Tile.Ring, 0.2, nil, nil, {
+								Color = Match and ThemeColor("Text") or ThemeColor("Stroke"),
+								Thickness = Match and 2 or 1
+							})
+						end
+					end
+
 					if Fire then
 						RunCallback(nil, ColorpickerConfig.Callback, Color)
 					end
@@ -6316,42 +6473,37 @@ function Lunarion:MakeWindow(WindowConfig)
 					ColorS, ColorV = S, V
 				end
 
-				-- dragging (mouse and touch)
+				-- dragging (mouse and touch). Only the X position matters, so the GUI inset never gets in the way.
 				local Dragging
 				local Scroller = ItemParent:IsA("ScrollingFrame") and ItemParent or ItemParent:FindFirstAncestorWhichIsA("ScrollingFrame")
 
-				local function PointerPosition(Input)
-					if Input.UserInputType == Enum.UserInputType.Touch then
-						return Vector2.new(Input.Position.X, Input.Position.Y)
-					end
-					return Vector2.new(Mouse.X, Mouse.Y)
-				end
-
 				local function DragTo(Input)
-					local Point = PointerPosition(Input)
-					if Dragging == "SV" then
-						ColorS = math.clamp((Point.X - SVBox.AbsolutePosition.X) / SVBox.AbsoluteSize.X, 0, 1)
-						ColorV = 1 - math.clamp((Point.Y - SVBox.AbsolutePosition.Y) / SVBox.AbsoluteSize.Y, 0, 1)
-					elseif Dragging == "Hue" then
-						ColorH = math.clamp((Point.X - HueBar.AbsolutePosition.X) / HueBar.AbsoluteSize.X, 0, 1)
+					local Slider = Dragging and Sliders[Dragging]
+					if not Slider then
+						return
 					end
-					Refresh(true)
+					local Alpha = math.clamp((Input.Position.X - Slider.Track.AbsolutePosition.X) / Slider.Track.AbsoluteSize.X, 0, 1)
+					if Dragging == "H" then
+						ColorH = Alpha
+					elseif Dragging == "S" then
+						ColorS = Alpha
+					else
+						ColorV = Alpha
+					end
+					Refresh(true, false)
 				end
 
-				local function BeginDrag(Kind)
-					return function(Input)
+				for Key, Slider in pairs(Sliders) do
+					AddConnection(Slider.Hit.InputBegan, function(Input)
 						if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
-							Dragging = Kind
+							Dragging = Key
 							if Scroller then
 								Scroller.ScrollingEnabled = false
 							end
 							DragTo(Input)
 						end
-					end
+					end)
 				end
-
-				AddConnection(SVBox.InputBegan, BeginDrag("SV"))
-				AddConnection(HueBar.InputBegan, BeginDrag("Hue"))
 
 				AddConnection(UserInputService.InputChanged, function(Input)
 					if Dragging and (Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch) then
@@ -6369,45 +6521,28 @@ function Lunarion:MakeWindow(WindowConfig)
 					end
 				end)
 
-				-- typed values
-				local function CommitChannel(Channel, Box)
-					local Number = tonumber(Box.Text)
-					if not Number then
-						Refresh(false)
-						return
-					end
-					Number = math.clamp(math.floor(Number + 0.5), 0, 255)
-					local Current = Colorpicker.Value
-					local R, G, B = math.floor(Current.R * 255 + 0.5), math.floor(Current.G * 255 + 0.5), math.floor(Current.B * 255 + 0.5)
-					if Channel == 1 then
-						R = Number
-					elseif Channel == 2 then
-						G = Number
-					else
-						B = Number
-					end
-					SetFromColor(Color3.fromRGB(R, G, B))
-					Refresh(true)
-					AutoSave()
+				-- presets
+				for _, Tile in ipairs(PresetTiles) do
+					AddConnection(Tile.Button.MouseButton1Click, function()
+						SetFromColor(Tile.Color)
+						Refresh(true, true)
+						AutoSave()
+					end)
 				end
 
-				AddConnection(RBox.FocusLost, function()
-					CommitChannel(1, RBox)
-				end)
-				AddConnection(GBox.FocusLost, function()
-					CommitChannel(2, GBox)
-				end)
-				AddConnection(BBox.FocusLost, function()
-					CommitChannel(3, BBox)
-				end)
+				-- typed hex (accepts #RRGGBB, RRGGBB and the short #RGB form)
 				AddConnection(HexBox.FocusLost, function()
-					local R, G, B = string.match(HexBox.Text, "^#?(%x%x)(%x%x)(%x%x)$")
+					local Text = string.gsub(HexBox.Text, "[%s#]", "")
+					if #Text == 3 then
+						Text = string.gsub(Text, ".", "%0%0")
+					end
+					local R, G, B = string.match(Text, "^(%x%x)(%x%x)(%x%x)$")
 					if R then
 						SetFromColor(Color3.fromRGB(tonumber(R, 16), tonumber(G, 16), tonumber(B, 16)))
-						Refresh(true)
+						Refresh(true, true)
 						AutoSave()
 					else
-						Refresh(false)
+						HexBox.Text = ToHex(Colorpicker.Value)
 					end
 				end)
 
@@ -6430,9 +6565,18 @@ function Lunarion:MakeWindow(WindowConfig)
 
 				function Colorpicker:Set(Value)
 					SetFromColor(Value)
-					Refresh(true)
+					Refresh(true, true)
 				end
 
+				-- theme changes repaint the selected-swatch rings
+				table.insert(Lunarion.ThemeListeners, function()
+					for _, Tile in ipairs(PresetTiles) do
+						Tile.Selected = nil
+					end
+					Refresh(false, false)
+				end)
+
+				Refresh(false, false)
 				Colorpicker:Set(Colorpicker.Value)
 				if ColorpickerConfig.Flag then
 					Lunarion.Flags[ColorpickerConfig.Flag] = Colorpicker
