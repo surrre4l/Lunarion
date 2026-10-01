@@ -1,0 +1,4 @@
+local imageUrl = "https://i.ibb.co/abc123/LunarionAd.png"
+
+-- Example: set it on an ImageLabel
+someImageLabel.Image = imageUrl
