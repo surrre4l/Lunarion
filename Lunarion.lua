@@ -1,4 +1,29 @@
+--[[
 
+
+
+██╗     ██╗   ██╗███╗   ██╗ █████╗ ██████╗ ██╗ ██████╗ ███╗   ██╗
+██║     ██║   ██║████╗  ██║██╔══██╗██╔══██╗██║██╔═══██╗████╗  ██║
+██║     ██║   ██║██╔██╗ ██║███████║██████╔╝██║██║   ██║██╔██╗ ██║
+██║     ██║   ██║██║╚██╗██║██╔══██║██╔══██╗██║██║   ██║██║╚██╗██║
+███████╗╚██████╔╝██║ ╚████║██║  ██║██║  ██║██║╚██████╔╝██║ ╚████║
+╚══════╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝
+by    .d8888. db    db d8888b. d8888b. d8888b. d88888b    d88  db
+      88'  YP 88    88 88  `8D 88  `8D 88  `8D 88'       d888  88
+      `8bo.   88    88 88oobY' 88oobY' 88oobY' 88ooooo  d8'88  88
+        `Y8b. 88    88 88`8b   88`8b   88`8b   88~~~~~ d8oo88o 88
+      db   8D 88b  d88 88 `88. 88 `88. 88 `88. 88.     `~~~88~ 88booo.
+      `8888Y' ~Y8888P' 88   YD 88   YD 88   YD Y88888P     YP  Y88888P
+
+    Lunarion UI Library  |  made by surrre4L
+
+    Icon credits (loaded on demand, nothing is embedded):
+      - Lucide Icons          ISC license   (lucide.dev, via latte-soft/lucide-roblox)
+      - Solar Icon Set        CC BY 4.0     (c) 480 Design - https://github.com/480-Design/Solar-Icon-Set
+      - Gravity UI Icons      MIT license   (c) YANDEX LLC - https://github.com/gravity-ui/icons
+      Solar, Gravity and Lucide are loaded through Footagesus/Icons (MIT).
+
+]]
 
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
@@ -332,7 +357,7 @@ Lunarion.Platform = DetectPlatform()
 -- ============================================================================================
 -- Icons: nothing is embedded. Icon libraries are loaded on demand and cached.
 --   "home"            -> default set (Lucide unless you call Lunarion:SetIconSet("solar"))
---   "solar:home-2-bold", "lucide:home", "geist:...", "craft:...", "sfsymbols:...", "gravity:..."
+--   "solar:home-2-bold", "lucide:home", "gravity:..."
 --   "rbxassetid://123" / a number / a URL -> used as is
 -- Add your own library: Lunarion:AddIconLibrary("name", function(IconName) return {Image = ..., RectSize = ..., RectOffset = ...} end)
 -- ============================================================================================
@@ -381,7 +406,7 @@ IconLibraries.lucide = function(Name)
 	}
 end
 
--- Solar, Geist, Craft, SF Symbols, Gravity (Footagesus/Icons, one asset per icon)
+-- Solar and Gravity (Footagesus/Icons, one asset per icon)
 local Pack, PackTried = nil, false
 local function LoadPack()
 	if PackTried then
@@ -394,11 +419,11 @@ local function LoadPack()
 	if Ok and type(Result) == "table" then
 		Pack = Result
 	else
-		warn("\nLunarion - Failed to load the extra icon pack (solar / geist / craft).\n")
+		warn("\nLunarion - Failed to load the extra icon pack (solar / gravity).\n")
 	end
 	return Pack
 end
-for _, SetName in ipairs({"solar", "geist", "craft", "sfsymbols", "gravity"}) do
+for _, SetName in ipairs({"solar", "gravity"}) do
 	IconLibraries[SetName] = function(Name)
 		local Loaded = LoadPack()
 		if not Loaded or not Loaded.GetIcon then return nil end
