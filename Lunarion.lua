@@ -2,18 +2,11 @@
 
 
 
-██╗     ██╗   ██╗███╗   ██╗ █████╗ ██████╗ ██╗ ██████╗ ███╗   ██╗
-██║     ██║   ██║████╗  ██║██╔══██╗██╔══██╗██║██╔═══██╗████╗  ██║
-██║     ██║   ██║██╔██╗ ██║███████║██████╔╝██║██║   ██║██╔██╗ ██║
-██║     ██║   ██║██║╚██╗██║██╔══██║██╔══██╗██║██║   ██║██║╚██╗██║
-███████╗╚██████╔╝██║ ╚████║██║  ██║██║  ██║██║╚██████╔╝██║ ╚████║
-╚══════╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝
-by    .d8888. db    db d8888b. d8888b. d8888b. d88888b    d88  db
-      88'  YP 88    88 88  `8D 88  `8D 88  `8D 88'       d888  88
-      `8bo.   88    88 88oobY' 88oobY' 88oobY' 88ooooo  d8'88  88
-        `Y8b. 88    88 88`8b   88`8b   88`8b   88~~~~~ d8oo88o 88
-      db   8D 88b  d88 88 `88. 88 `88. 88 `88. 88.     `~~~88~ 88booo.
-      `8888Y' ~Y8888P' 88   YD 88   YD 88   YD Y88888P     YP  Y88888P
+  _                                 _
+ | |   _   _ _ __   __ _ _ __ ___  | |__   ___
+ | |  | | | | '_ \ / _` | '__/ _ \ | '_ \ / _ \
+ | |__| |_| | | | | (_| | | | (_) || | | | (_) |
+ |_____\__,_|_| |_|\__,_|_|  \___(_)_| |_|\___/
 
     Lunarion UI Library  |  made by surrre4L
 
@@ -1423,9 +1416,9 @@ function Lunarion:SaveConfig()
 	return false
 end
 
--- Key system, Rayfield gen1 layout in the Lunarion look: a solid black card (tinted by the active theme),
--- title + subtitle on the left, a single X on the right (no minimize), a long key input and an
--- "About Key System" note underneath. Call this BEFORE MakeWindow; it yields until the key is
+-- Key system: a solid black card (tinted by the active theme), title + subtitle on the left,
+-- a single X on the right (no minimize), a long key input and an "About Key System" note
+-- underneath. Call this BEFORE MakeWindow; it yields until the key is
 -- verified (or the user closes it). Press Enter in the box to submit.
 -- Config: Title, Subtitle, About (or Note), Key (a string, or a table of valid strings), GrabKeyFromSite
 --         (fetch each Key as a URL and match its trimmed body instead), SaveKey (default true; remembers a good
@@ -1660,7 +1653,7 @@ function Lunarion:MakeKeySystem(Config)
 		return Order
 	end
 
-	-- "Key" caption (Rayfield gen1 has this above the box)
+	-- "Key" caption above the box
 	SetProps(MakeElement("Label", "Key", 12), {
 		Name = "KeyCaption",
 		Size = UDim2.new(1, 0, 0, 14),
@@ -1733,7 +1726,7 @@ function Lunarion:MakeKeySystem(Config)
 		Parent = Content
 	})
 
-	-- "About Key System" (the Note block from Rayfield gen1)
+	-- "About Key System" note block
 	SetProps(MakeElement("Label", "About Key System", 13), {
 		Name = "AboutHeader",
 		Size = UDim2.new(1, 0, 0, 16),
@@ -3894,7 +3887,7 @@ function Lunarion:MakeWindow(WindowConfig)
 		return SidebarCollapsed and not TopMode
 	end
 
-	-- Top tab bar (the Rayfield-style alternative to the sidebar). Same buttons, same containers: the tab buttons
+	-- Top tab bar: an alternative to the sidebar. Same buttons, same containers: the tab buttons
 	-- are simply re-parented, so nothing about tabs, search or sections changes between the two layouts.
 	local TopTabs = AddThemeObject(SetChildren(SetProps(MakeElement("Frame"), {
 		Name = "TopTabs",
