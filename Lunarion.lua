@@ -2219,231 +2219,6 @@ function Lunarion.Lunae:Command(Text)
 	Lunarion.Lunae:Emit("Command", {Text = Text, Flags = Lunarion.Flags})
 end
 
--- Lunae AI reference panel: a built-in, fully offline function browser. It does not call any
--- model or send any data anywhere -- it is a searchable index of Lunarion's own API, each entry
--- written by hand, so a user can learn what a function does without leaving the UI. Opened from
--- the capsule button beside Settings/Minimize/Close.
-Lunarion.LunaeDocs = {
-	{Name = "MakeWindow", Category = "Core", Desc = "Builds the main window: title, subtitle, size, theme, key system hookup, config folder. Call once, returns the Window object used to add tabs."},
-	{Name = "MakeTab", Category = "Core", Desc = "Adds a tab (with icon) to the sidebar/top bar and returns a Tab object used to add sections and elements."},
-	{Name = "MakeTabSection", Category = "Core", Desc = "Adds a labelled divider inside a tab's sidebar group, or just a plain line if called with no config."},
-	{Name = "AddSection", Category = "Core", Desc = "Adds a titled card/section inside a tab's content area that elements (toggles, sliders, etc.) are placed into."},
-	{Name = "AddButton", Category = "Elements", Desc = "A clickable button row with a title, optional description and icon, firing a Callback on click."},
-	{Name = "AddToggle", Category = "Elements", Desc = "An on/off switch bound to a Flag, with an optional Callback and nested elements that show only while it is on."},
-	{Name = "AddSlider", Category = "Elements", Desc = "A draggable numeric slider between Min/Max with Rounding, firing Callback as it moves and on release."},
-	{Name = "AddDropdown", Category = "Elements", Desc = "A single- or multi-select dropdown list built from an Options table, with search for long lists."},
-	{Name = "AddInput", Category = "Elements", Desc = "A text input row (optionally numeric-only or multi-line) that fires Callback as the user types or on Enter."},
-	{Name = "AddBind", Category = "Elements", Desc = "A keybind capture row: click it, press a key, and it stores + listens for that key, calling Callback."},
-	{Name = "AddColorpicker", Category = "Elements", Desc = "A full HSV color picker row bound to a Flag, with alpha support and a live swatch preview."},
-	{Name = "AddLabel / AddParagraph", Category = "Elements", Desc = "Static text rows for headings or longer explanations; AddCustomLabel adds a colored/icon variant."},
-	{Name = "AddProgressBar", Category = "Elements", Desc = "A static meter with a track and an animated fill; call :Set(0-1) to move it. Good for loading/health/goal readouts."},
-	{Name = "AddSegmented", Category = "Elements", Desc = "An iOS-style segmented control: a row of options in one pill with exactly one selected, sliding indicator included."},
-	{Name = "AddSetting", Category = "Settings", Desc = "Registers an item (Toggle, Slider, Dropdown, Button, Keybind...) into the built-in Settings tab/page."},
-	{Name = "MakeNotification", Category = "Feedback", Desc = "Pops a glass, pill-shaped toast from the bottom-right: title, content, icon, type color, duration, click handler."},
-	{Name = "MakeKeySystem", Category = "Auth", Desc = "Shows a key-entry card before MakeWindow; yields until a valid key is entered or the user closes it."},
-	{Name = "AddTheme / SetTheme / GetTheme / GetThemes", Category = "Theming", Desc = "Register a custom color theme, switch the active theme, or read the current/available themes."},
-	{Name = "SaveConfig / Init", Category = "Config", Desc = "SaveConfig writes all current Flag values to the config file now; Init loads a saved config back in on startup."},
-	{Name = "EnableAnalytics / TrackEvent / GetAnalytics / ExportAnalytics", Category = "Analytics", Desc = "Opt-in local usage tracking: turn it on, log a custom event, read the log, or export it to a file."},
-	{Name = "IsRunning", Category = "Core", Desc = "Returns false once the UI has been destroyed/unloaded -- used internally to stop loops cleanly."},
-	{Name = "Destroy", Category = "Core", Desc = "Disconnects every connection, stops running loops and removes the whole UI from the game."},
-	{Name = "AddIconLibrary / SetIconSet / GetIconSets", Category = "Icons", Desc = "Register an extra named icon pack, switch which pack string icon names resolve against, or list packs."},
-	{Name = "Lunae:Register", Category = "Lunae AI", Desc = "Lets an external handler subscribe to UI events (WindowOpened, WindowClosed, ThemeChanged, Command)."},
-}
-
-local function BuildLunaePanel(MainWindow, WindowStuff)
-	local Panel = Create("Frame", {
-		Name = "LunaePanel",
-		Size = UDim2.new(1, 0, 1, -50),
-		Position = UDim2.new(0, 0, 0, 50),
-		BackgroundColor3 = ThemeColor("Main"),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ZIndex = 55,
-		Visible = false,
-		Active = false,
-		Parent = MainWindow
-	}, {
-		Create("UIGradient", {
-			Color = ColorSequence.new(ThemeColor("Main"):Lerp(ThemeColor("Second"), 0.25), ThemeColor("Main")),
-			Rotation = 90
-		})
-	})
-
-	local Header = Create("Frame", {
-		Name = "Header",
-		Size = UDim2.new(1, -32, 0, 56),
-		Position = UDim2.new(0, 16, 0, 14),
-		BackgroundTransparency = 1,
-		ZIndex = 56,
-		Parent = Panel
-	}, {
-		SetProps(MakeElement("Image", "sparkles"), {
-			Name = "Glyph",
-			Size = UDim2.new(0, 22, 0, 22),
-			Position = UDim2.new(0, 0, 0, 2),
-			ImageColor3 = ThemeColor("Accent"),
-			ZIndex = 56
-		}),
-		SetProps(MakeElement("Label", "Lunae AI", 16), {
-			Name = "Title",
-			Position = UDim2.new(0, 32, 0, 0),
-			Size = UDim2.new(1, -32, 0, 20),
-			FontFace = Fonts.Title,
-			TextColor3 = ThemeColor("Text"),
-			ZIndex = 56
-		}),
-		SetProps(MakeElement("Label", "Offline reference for every function in Lunarion -- search or scroll below.", 12), {
-			Name = "Subtitle",
-			Position = UDim2.new(0, 32, 0, 22),
-			Size = UDim2.new(1, -60, 0, 28),
-			TextWrapped = true,
-			TextColor3 = ThemeColor("Text"):Lerp(ThemeColor("Main"), 0.35),
-			ZIndex = 56
-		})
-	})
-
-	local CloseLunae = SetChildren(SetProps(MakeElement("Button"), {
-		Name = "CloseLunae",
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -16, 0, 14),
-		Size = UDim2.new(0, 26, 0, 26),
-		BackgroundTransparency = 1,
-		ZIndex = 56,
-		Parent = Panel
-	}), {
-		Create("UICorner", {CornerRadius = UDim.new(1, 0)}),
-		SetProps(MakeElement("Image", "rbxassetid://7072725342"), {
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.new(0.5, 0, 0.5, 0),
-			Size = UDim2.new(0, 13, 0, 13),
-			ImageColor3 = ThemeColor("Text"),
-			ZIndex = 56
-		})
-	})
-
-	local SearchBox = Create("TextBox", {
-		Name = "LunaeSearch",
-		Size = UDim2.new(1, -32, 0, 34),
-		Position = UDim2.new(0, 16, 0, 76),
-		BackgroundColor3 = ThemeColor("Second"),
-		BackgroundTransparency = 0.2,
-		BorderSizePixel = 0,
-		FontFace = Fonts.Body,
-		TextSize = 13,
-		Text = "",
-		TextColor3 = ThemeColor("Text"),
-		PlaceholderText = "Search functions (e.g. \"slider\", \"theme\", \"notification\")",
-		PlaceholderColor3 = ThemeColor("Text"):Lerp(ThemeColor("Main"), 0.4),
-		ClearTextOnFocus = false,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		ZIndex = 56,
-		Parent = Panel
-	}, {
-		Create("UICorner", {CornerRadius = UDim.new(0, 8)}),
-		Create("UIPadding", {PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10)})
-	})
-
-	local List = SetProps(SetChildren(MakeElement("ScrollFrame", ThemeColor("Accent"), 4), {
-		MakeElement("List", 0, 6),
-		MakeElement("Padding", 16, 16, 16, 8)
-	}), {
-		Name = "LunaeList",
-		Size = UDim2.new(1, 0, 1, -124),
-		Position = UDim2.new(0, 0, 0, 120),
-		ZIndex = 56,
-		Parent = Panel
-	})
-	List.UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	AddConnection(List.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
-		List.CanvasSize = UDim2.new(0, 0, 0, List.UIListLayout.AbsoluteContentSize.Y + 24)
-	end)
-
-	local function MakeEntry(Entry)
-		local Card = Create("Frame", {
-			Name = "Entry",
-			Size = UDim2.new(1, -32, 0, 0),
-			AutomaticSize = Enum.AutomaticSize.Y,
-			BackgroundColor3 = ThemeColor("Second"),
-			BackgroundTransparency = 0.25,
-			BorderSizePixel = 0,
-			ZIndex = 56,
-			Parent = List
-		}, {
-			Create("UICorner", {CornerRadius = UDim.new(0, 8)}),
-			Create("UIPadding", {PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12), PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10)}),
-			SetProps(MakeElement("Label", Entry.Name, 14), {
-				Name = "FnName",
-				Size = UDim2.new(1, 0, 0, 18),
-				FontFace = Fonts.Title,
-				TextColor3 = ThemeColor("Text"),
-				ZIndex = 56
-			}),
-			SetProps(MakeElement("Label", Entry.Category, 11), {
-				Name = "Category",
-				Position = UDim2.new(1, -90, 0, 1),
-				Size = UDim2.new(0, 90, 0, 16),
-				TextXAlignment = Enum.TextXAlignment.Right,
-				TextColor3 = ThemeColor("Accent"),
-				ZIndex = 56
-			}),
-			SetProps(MakeElement("Label", Entry.Desc, 12), {
-				Name = "Desc",
-				Position = UDim2.new(0, 0, 0, 20),
-				Size = UDim2.new(1, 0, 0, 0),
-				AutomaticSize = Enum.AutomaticSize.Y,
-				TextWrapped = true,
-				TextYAlignment = Enum.TextYAlignment.Top,
-				TextColor3 = ThemeColor("Text"):Lerp(ThemeColor("Main"), 0.3),
-				ZIndex = 56
-			})
-		})
-		return Card
-	end
-
-	for _, Entry in ipairs(Lunarion.LunaeDocs) do
-		MakeEntry(Entry)
-	end
-
-	AddConnection(SearchBox:GetPropertyChangedSignal("Text"), function()
-		local Query = string.lower(SearchBox.Text)
-		for _, Card in ipairs(List:GetChildren()) do
-			if Card.Name == "Entry" then
-				local Hit = Query == "" or string.find(string.lower(Card.FnName.Text), Query, 1, true)
-					or string.find(string.lower(Card.Desc.Text), Query, 1, true)
-					or string.find(string.lower(Card.Category.Text), Query, 1, true)
-				Card.Visible = Hit and true or false
-			end
-		end
-	end)
-
-	local PanelScale = Create("UIScale", {Name = "Scale", Scale = 0.96, Parent = Panel})
-
-	local Open = false
-	local function SetOpen(On)
-		if On == Open then
-			return
-		end
-		Open = On
-		if On then
-			Panel.Visible = true
-			WindowStuff.Active = false
-			SearchBox.Text = ""
-		end
-		Tw(Panel, 0.26, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, {BackgroundTransparency = On and 0.04 or 1})
-		Tw(PanelScale, 0.26, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, {Scale = On and 1 or 0.96})
-		if not On then
-			task.delay(0.26, function()
-				if not Open then
-					Panel.Visible = false
-					WindowStuff.Active = true
-				end
-			end)
-		end
-	end
-
-	return SetOpen
-end
-
 local function PrettyKey(Name)
 	if Name == nil or Name == "" or Name == "None" or Name == "Unknown" then
 		return "None"
@@ -2661,8 +2436,6 @@ function Lunarion:MakeWindow(WindowConfig)
 	LayoutBtn.Visible = WindowConfig.TabStyleToggle ~= false
 	local SettingsBtn = CapsuleButton("SettingsBadge", "settings", nil, 4.5)
 	SettingsBtn.Visible = WindowConfig.Settings ~= false
-	local LunaeBtn = CapsuleButton("LunaeBadge", "sparkles", nil, 4.8)
-	LunaeBtn.Visible = WindowConfig.LunaeAI ~= false
 	local MinimizeBtn = CapsuleButton("MinimizeBadge", "rbxassetid://7072719338", nil, 5)
 	local CloseBtn = CapsuleButton("CloseBadge", "rbxassetid://7072725342", nil, 6)
 
@@ -2682,7 +2455,7 @@ function Lunarion:MakeWindow(WindowConfig)
 			SortOrder = Enum.SortOrder.LayoutOrder,
 			Padding = UDim.new(0, 2)
 		}),
-		SearchBtn, SearchField, CapsuleSep, LayoutBtn, SettingsBtn, LunaeBtn, MinimizeBtn, CloseBtn
+		SearchBtn, SearchField, CapsuleSep, LayoutBtn, SettingsBtn, MinimizeBtn, CloseBtn
 	}), "Second")
 
 	local function HoverFill(Btn, Fill, IconHover)
@@ -2712,7 +2485,6 @@ function Lunarion:MakeWindow(WindowConfig)
 	HoverFill(LayoutBtn, SoftFill)
 	HoverFill(MinimizeBtn, SoftFill)
 	HoverFill(SettingsBtn, SoftFill)
-	HoverFill(LunaeBtn, SoftFill)
 	HoverFill(CloseBtn, function() return Color3.fromRGB(232, 76, 61) end, Color3.fromRGB(255, 255, 255))
 
 	local DragPoint = SetProps(MakeElement("TFrame"), {
@@ -2833,14 +2605,6 @@ function Lunarion:MakeWindow(WindowConfig)
 		DragPoint,
 		WindowStuff
 	}), "Main")
-
-	local SetLunaeOpen = BuildLunaePanel(MainWindow, WindowStuff)
-	AddConnection(LunaeBtn.MouseButton1Click, function()
-		SetLunaeOpen(true)
-	end)
-	AddConnection(MainWindow.LunaePanel.CloseLunae.MouseButton1Click, function()
-		SetLunaeOpen(false)
-	end)
 
 	-- Logo (next to the script name) + Subtitle (beside the name) + Author (under the name)
 	local LogoValue = WindowConfig.Logo or (WindowConfig.ShowIcon and WindowConfig.Icon) or nil
@@ -3460,7 +3224,7 @@ function Lunarion:MakeWindow(WindowConfig)
 		local ToColor = ThemeColor("Second")
 		local Hidden = false
 
-		Drive(0.8, Token, function(a)
+		Drive(0.95, Token, function(a)
 			local Cover = Ease(math.clamp(a / 0.15, 0, 1), Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 			if a >= 0.15 and not Hidden then
 				Hidden = true
@@ -3468,9 +3232,9 @@ function Lunarion:MakeWindow(WindowConfig)
 			end
 
 			-- 1) fold into the pill: height leads, width follows, position glides (opening curves, reversed)
-			local m = math.clamp(a / 0.58, 0, 1)
-			local Ay = Ease(m, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut)
-			local Ax = Ease(math.clamp((a - 0.05) / 0.53, 0, 1), Enum.EasingStyle.Quint, Enum.EasingDirection.InOut)
+			local m = math.clamp(a / 0.66, 0, 1)
+			local Ay = Ease(m, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut)
+			local Ax = Ease(math.clamp((a - 0.04) / 0.62, 0, 1), Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut)
 			local Ap = Ay
 			local Stretch = 0 -- no width pulse while closing (it made the edges wobble)
 			Morph(From, To, Ax, Ay, Ap, Stretch)
@@ -3490,15 +3254,17 @@ function Lunarion:MakeWindow(WindowConfig)
 			end
 
 			-- 2b) the real pill fades its icon + text in ON TOP of the finishing shape, so the capsule is never empty
-			if ToPill and a >= 0.3 then
+			if ToPill and a >= 0.5 then
 				if not Pill.Visible then
 					Pill.Size = UDim2.new(0, PillW, 0, PillH)
 					PillScale.Scale = 1
 					Pill.Visible = true
 					SetPillAlpha(1)
-					Pill.BackgroundTransparency = 0
+					Pill.BackgroundTransparency = 1
 				end
-				local Show = Ease(math.clamp((a - 0.3) / 0.25, 0, 1), Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+				-- the pill fades in only once the shape has almost reached its size, so nothing pops over the morph
+				local Show = Ease(math.clamp((a - 0.5) / 0.4, 0, 1), Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+				Pill.BackgroundTransparency = 1 - Show
 				Pill.Content.Ico.ImageTransparency = 1 - Show
 				Pill.Content.Title.TextTransparency = 1 - Show
 				local PStroke = Pill:FindFirstChildOfClass("UIStroke")
@@ -5293,6 +5059,150 @@ function Lunarion:MakeWindow(WindowConfig)
 					ApplySaved(ToggleConfig.Flag, Toggle)
 				end
 				return Toggle
+			end
+			-- DUAL BUTTON: two controls in one row. Each side is a Button or a Toggle (no color pickers).
+			-- AddDualButton({
+			--     Left  = {Name = "Start",  Type = "Button", Callback = function() end},
+			--     Right = {Name = "Notify", Type = "Toggle", Default = false, Flag = "notify", Callback = function(v) end},
+			-- })
+			-- Returns {Left = ..., Right = ...}; toggle sides have :Set(v) and .Value, button sides have :Fire().
+			function ElementFunction:AddDualButton(DualConfig)
+				DualConfig = DualConfig or {}
+				local Row = Create("Frame", {
+					Name = "DualButton",
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 0, 38),
+					Parent = ItemParent
+				}, {
+					Create("UIListLayout", {
+						FillDirection = Enum.FillDirection.Horizontal,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, 8)
+					})
+				})
+
+				local function MakeSide(Config, Order)
+					Config = Config or {}
+					Config.Name = Config.Name or (Order == 1 and "Left" or "Right")
+					Config.Callback = Config.Callback or function() end
+					local IsToggle = string.lower(tostring(Config.Type or "Button")) == "toggle"
+					if Config.Save == nil then Config.Save = Config.Flag ~= nil end
+					local Side = {Type = IsToggle and "Toggle" or "Button", Save = Config.Save, Value = IsToggle and (Config.Default and true or false) or nil}
+
+					local Click = SetProps(MakeElement("Button"), {Size = UDim2.new(1, 0, 1, 0), ZIndex = 3})
+					local Label = AddThemeObject(SetProps(MakeElement("Label", Config.Name, 15), {
+						Size = UDim2.new(1, IsToggle and -58 or -16, 1, 0),
+						Position = UDim2.new(0, 12, 0, 0),
+						FontFace = Fonts.Body,
+						TextXAlignment = IsToggle and Enum.TextXAlignment.Left or Enum.TextXAlignment.Center,
+						TextTruncate = Enum.TextTruncate.AtEnd,
+						Name = "Content"
+					}), "Text")
+					if not IsToggle then
+						Label.Position = UDim2.new(0, 8, 0, 0)
+					end
+
+					local Frame = AddThemeObject(SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(255, 255, 255), 0, 10), {
+						Size = UDim2.new(0.5, -4, 1, 0),
+						LayoutOrder = Order,
+						Parent = Row
+					}), {
+						Label,
+						AddThemeObject(MakeElement("Stroke"), "Stroke"),
+						Click
+					}), "Second")
+
+					local function Paint(Color, Time)
+						Tw(Frame, Time, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, {BackgroundColor3 = Color})
+					end
+					AddConnection(Click.MouseEnter, function() Paint(Shift(ThemeColor("Second"), 6), 0.25) end)
+					AddConnection(Click.MouseLeave, function() Paint(ThemeColor("Second"), 0.25) end)
+					AddConnection(Click.MouseButton1Down, function() Paint(Shift(ThemeColor("Second"), 12), 0.12) end)
+					AddConnection(Click.MouseButton1Up, function() Paint(Shift(ThemeColor("Second"), 6), 0.25) end)
+
+					if not IsToggle then
+						function Side:Fire()
+							RunCallback(Frame, Config.Callback)
+						end
+						AddConnection(Click.MouseButton1Click, function()
+							Tw(Label, 0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, {TextTransparency = 0.4})
+							task.delay(0.1, function()
+								if Label.Parent then Tw(Label, 0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, {TextTransparency = 0}) end
+							end)
+							Side:Fire()
+						end)
+						return Side
+					end
+
+					-- toggle side: small track, knob stretches while it slides then settles back into a circle
+					local KnobOff, KnobOn, KnobStretch, KnobSize = 3, 21, 20, 12
+					local KnobToken = 0
+					local Knob = Create("Frame", {
+						Name = "Knob", AnchorPoint = Vector2.new(0, 0.5),
+						Position = UDim2.new(0, KnobOff, 0.5, 0), Size = UDim2.new(0, KnobSize, 0, KnobSize),
+						BackgroundColor3 = ThemeColor("TextDark"), BorderSizePixel = 0
+					}, {Create("UICorner", {CornerRadius = UDim.new(1, 0)})})
+					local TrackStroke = Create("UIStroke", {Thickness = 1.2, Color = ThemeColor("TextDark")})
+					local Track = Create("Frame", {
+						Name = "Track", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0),
+						Size = UDim2.new(0, 36, 0, 18), BackgroundTransparency = 1, BorderSizePixel = 0, Parent = Frame
+					}, {Create("UICorner", {CornerRadius = UDim.new(1, 0)}), TrackStroke, Knob})
+
+					local function MoveKnob(On, Animate)
+						KnobToken = KnobToken + 1
+						local MyToken = KnobToken
+						local Target = On and KnobOn or KnobOff
+						if not Animate then
+							Knob.Size = UDim2.new(0, KnobSize, 0, KnobSize)
+							Knob.Position = UDim2.new(0, Target, 0.5, 0)
+							return
+						end
+						local Left = Knob.Position.X.Offset
+						local GrowLeft = On and Left or math.min(Left, KnobOn + KnobSize - KnobStretch)
+						Tw(Knob, 0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, {
+							Size = UDim2.new(0, KnobStretch, 0, KnobSize - 2), Position = UDim2.new(0, GrowLeft, 0.5, 0)
+						})
+						task.delay(0.12, function()
+							if MyToken ~= KnobToken or not Knob.Parent then return end
+							Tw(Knob, 0.26, Enum.EasingStyle.Quint, Enum.EasingDirection.Out, {
+								Size = UDim2.new(0, KnobSize, 0, KnobSize), Position = UDim2.new(0, Target, 0.5, 0)
+							})
+						end)
+					end
+					local function Refresh(Animate, Moved)
+						local On = Side.Value
+						local Accent = ThemeColor("Accent")
+						local Off = ThemeColor("TextDark")
+						local Time = Animate and 0.3 or 0
+						Track.BackgroundColor3 = Accent
+						Tw(Track, Time, Enum.EasingStyle.Quint, Enum.EasingDirection.Out, {BackgroundTransparency = On and 0 or 1})
+						Tw(TrackStroke, Time, Enum.EasingStyle.Quint, Enum.EasingDirection.Out, {Color = On and Accent or Off})
+						Tw(Knob, Time, Enum.EasingStyle.Quint, Enum.EasingDirection.Out, {BackgroundColor3 = On and Color3.fromRGB(255, 255, 255) or Off})
+						if Moved ~= false then MoveKnob(On, Animate) end
+					end
+					function Side:Set(Value)
+						Side.Value = Value and true or false
+						Refresh(true)
+						RunCallback(Frame, Config.Callback, Side.Value)
+					end
+					Refresh(false)
+					Side:Set(Side.Value)
+					table.insert(Lunarion.ThemeListeners, function() Refresh(true, false) end)
+					AddConnection(Click.MouseButton1Click, function()
+						Side:Set(not Side.Value)
+						AutoSave()
+					end)
+					if Config.Flag then
+						Lunarion.Flags[Config.Flag] = Side
+						ApplySaved(Config.Flag, Side)
+					end
+					return Side
+				end
+
+				local Dual = {}
+				Dual.Left = MakeSide(DualConfig.Left, 1)
+				Dual.Right = MakeSide(DualConfig.Right, 2)
+				return Dual
 			end
 			function ElementFunction:AddSlider(SliderConfig)
 				SliderConfig = SliderConfig or {}
