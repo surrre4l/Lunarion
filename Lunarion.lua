@@ -739,6 +739,22 @@ local function SetTheme(Animate)
 end
 
 local ActiveTweens = setmetatable({}, {__mode = "k"})
+-- Most tweens in this file reuse the same handful of (Time, Style, Direction) combos (every button's
+-- hover/press animation, every card's enter/exit, etc.), so TweenInfo objects are cached and reused
+-- instead of constructed fresh on every single call -- cuts allocations on hover-heavy UIs.
+local TweenInfoCache = {}
+local function GetTweenInfo(Time, Style, Direction)
+	Style = Style or Enum.EasingStyle.Quint
+	Direction = Direction or Enum.EasingDirection.Out
+	local Key = Time .. "_" .. Style.Name .. "_" .. Direction.Name
+	local Info = TweenInfoCache[Key]
+	if not Info then
+		Info = TweenInfo.new(Time, Style, Direction)
+		TweenInfoCache[Key] = Info
+	end
+	return Info
+end
+
 local function Tw(Object, Time, Style, Direction, Props)
 	-- an older tween that only animates properties this one also animates is cancelled, so quick
 	-- hover / press changes never fight each other (less jitter, fewer live tweens)
@@ -762,7 +778,7 @@ local function Tw(Object, Time, Style, Direction, Props)
 		Running = {}
 		ActiveTweens[Object] = Running
 	end
-	local Tween = TweenService:Create(Object, TweenInfo.new(Time, Style or Enum.EasingStyle.Quint, Direction or Enum.EasingDirection.Out), Props)
+	local Tween = TweenService:Create(Object, GetTweenInfo(Time, Style, Direction), Props)
 	local Entry = {Tween = Tween, Props = Props}
 	table.insert(Running, Entry)
 	Tween.Completed:Once(function()
@@ -1037,9 +1053,9 @@ local NotificationHolder = SetProps(SetChildren(MakeElement("TFrame"), {
 	Parent = Root
 })
 
--- Glassmorphic notification: a translucent rounded card (not a pill) with a soft glass stroke and sheen.
--- Enter: it rises in slightly small, grows to size and un-fades. Exit: it drifts DOWN and SHRINKS (same rounded
--- shape, it never turns into a pill), then fades away, then the space closes up.
+-- Glassmorphic notification: a translucent PILL-shaped card (fully rounded ends) with a soft glass
+-- stroke and sheen. Enter: it rises in slightly small, grows to size and un-fades. Exit: it drifts
+-- DOWN and SHRINKS (same pill shape throughout), then fades away, then the space closes up.
 -- Config: Name/Title, Content, Image/Icon (+ImageSource), Time/Duration (seconds, default 15; 0 / false / math.huge = stays until clicked),
 --         Type ("success" | "warning" | "error"), Color (accent, defaults to the theme's Accent),
 --         ShowProgress (default true), Dismissable (default true), OnClick (function)
@@ -1113,7 +1129,9 @@ function Lunarion:MakeNotification(Config)
 			ClipsDescendants = true,
 			Parent = Slot
 		}, {
-			Create("UICorner", {Name = "Corner", CornerRadius = UDim.new(0, 12)}),
+			-- radius = half the card's height (capped at 28), so short cards are a full pill and tall
+			-- multi-line ones stay a soft rounded pill instead of ballooning into a circle-ish blob
+			Create("UICorner", {Name = "Corner", CornerRadius = UDim.new(0, math.min(Height / 2, 28))}),
 			Create("UIScale", {Name = "Scale", Scale = 0.9}),
 			-- frosted rim
 			Create("UIStroke", {
@@ -1149,7 +1167,7 @@ function Lunarion:MakeNotification(Config)
 			}),
 			SetProps(MakeElement("Image", Icon, Config.ImageSource), {
 				Name = "Icon",
-				Position = UDim2.new(0, 14, 0, 12),
+				Position = UDim2.new(0, 17, 0, 12),
 				Size = UDim2.new(0, 20, 0, 20),
 				ImageColor3 = Accent:Lerp(White, 0.55),
 				ImageTransparency = 1,
@@ -1157,8 +1175,8 @@ function Lunarion:MakeNotification(Config)
 			}),
 			SetProps(MakeElement("Label", Name, 14), {
 				Name = "Title",
-				Position = UDim2.new(0, 44, 0, 12),
-				Size = UDim2.new(1, -70, 0, 20),
+				Position = UDim2.new(0, 47, 0, 12),
+				Size = UDim2.new(1, -76, 0, 20),
 				FontFace = Fonts.Title,
 				TextColor3 = White,
 				TextTransparency = 1,
@@ -1167,8 +1185,8 @@ function Lunarion:MakeNotification(Config)
 			}),
 			SetProps(MakeElement("Label", Content, 13), {
 				Name = "Content",
-				Position = UDim2.new(0, 14, 0, 36),
-				Size = UDim2.new(1, -28, 0, ContentH),
+				Position = UDim2.new(0, 17, 0, 36),
+				Size = UDim2.new(1, -34, 0, ContentH),
 				FontFace = Fonts.Body,
 				TextColor3 = Color3.fromRGB(210, 212, 222),
 				TextTransparency = 1,
@@ -1184,7 +1202,7 @@ function Lunarion:MakeNotification(Config)
 		local XBtn = SetProps(MakeElement("Image", "rbxassetid://7072725342"), {
 			Name = "Close",
 			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.new(1, -12, 0, 12),
+			Position = UDim2.new(1, -15, 0, 12),
 			Size = UDim2.new(0, 14, 0, 14),
 			ImageColor3 = Color3.fromRGB(220, 220, 225),
 			ImageTransparency = 1,
@@ -1205,8 +1223,8 @@ function Lunarion:MakeNotification(Config)
 			Progress = Create("Frame", {
 				Name = "Progress",
 				AnchorPoint = Vector2.new(0, 1),
-				Position = UDim2.new(0, 14, 1, -13),
-				Size = UDim2.new(1, -28, 0, 2),
+				Position = UDim2.new(0, 17, 1, -13),
+				Size = UDim2.new(1, -34, 0, 2),
 				BackgroundColor3 = Accent:Lerp(White, 0.35),
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
@@ -2201,6 +2219,231 @@ function Lunarion.Lunae:Command(Text)
 	Lunarion.Lunae:Emit("Command", {Text = Text, Flags = Lunarion.Flags})
 end
 
+-- Lunae AI reference panel: a built-in, fully offline function browser. It does not call any
+-- model or send any data anywhere -- it is a searchable index of Lunarion's own API, each entry
+-- written by hand, so a user can learn what a function does without leaving the UI. Opened from
+-- the capsule button beside Settings/Minimize/Close.
+Lunarion.LunaeDocs = {
+	{Name = "MakeWindow", Category = "Core", Desc = "Builds the main window: title, subtitle, size, theme, key system hookup, config folder. Call once, returns the Window object used to add tabs."},
+	{Name = "MakeTab", Category = "Core", Desc = "Adds a tab (with icon) to the sidebar/top bar and returns a Tab object used to add sections and elements."},
+	{Name = "MakeTabSection", Category = "Core", Desc = "Adds a labelled divider inside a tab's sidebar group, or just a plain line if called with no config."},
+	{Name = "AddSection", Category = "Core", Desc = "Adds a titled card/section inside a tab's content area that elements (toggles, sliders, etc.) are placed into."},
+	{Name = "AddButton", Category = "Elements", Desc = "A clickable button row with a title, optional description and icon, firing a Callback on click."},
+	{Name = "AddToggle", Category = "Elements", Desc = "An on/off switch bound to a Flag, with an optional Callback and nested elements that show only while it is on."},
+	{Name = "AddSlider", Category = "Elements", Desc = "A draggable numeric slider between Min/Max with Rounding, firing Callback as it moves and on release."},
+	{Name = "AddDropdown", Category = "Elements", Desc = "A single- or multi-select dropdown list built from an Options table, with search for long lists."},
+	{Name = "AddInput", Category = "Elements", Desc = "A text input row (optionally numeric-only or multi-line) that fires Callback as the user types or on Enter."},
+	{Name = "AddBind", Category = "Elements", Desc = "A keybind capture row: click it, press a key, and it stores + listens for that key, calling Callback."},
+	{Name = "AddColorpicker", Category = "Elements", Desc = "A full HSV color picker row bound to a Flag, with alpha support and a live swatch preview."},
+	{Name = "AddLabel / AddParagraph", Category = "Elements", Desc = "Static text rows for headings or longer explanations; AddCustomLabel adds a colored/icon variant."},
+	{Name = "AddProgressBar", Category = "Elements", Desc = "A static meter with a track and an animated fill; call :Set(0-1) to move it. Good for loading/health/goal readouts."},
+	{Name = "AddSegmented", Category = "Elements", Desc = "An iOS-style segmented control: a row of options in one pill with exactly one selected, sliding indicator included."},
+	{Name = "AddSetting", Category = "Settings", Desc = "Registers an item (Toggle, Slider, Dropdown, Button, Keybind...) into the built-in Settings tab/page."},
+	{Name = "MakeNotification", Category = "Feedback", Desc = "Pops a glass, pill-shaped toast from the bottom-right: title, content, icon, type color, duration, click handler."},
+	{Name = "MakeKeySystem", Category = "Auth", Desc = "Shows a key-entry card before MakeWindow; yields until a valid key is entered or the user closes it."},
+	{Name = "AddTheme / SetTheme / GetTheme / GetThemes", Category = "Theming", Desc = "Register a custom color theme, switch the active theme, or read the current/available themes."},
+	{Name = "SaveConfig / Init", Category = "Config", Desc = "SaveConfig writes all current Flag values to the config file now; Init loads a saved config back in on startup."},
+	{Name = "EnableAnalytics / TrackEvent / GetAnalytics / ExportAnalytics", Category = "Analytics", Desc = "Opt-in local usage tracking: turn it on, log a custom event, read the log, or export it to a file."},
+	{Name = "IsRunning", Category = "Core", Desc = "Returns false once the UI has been destroyed/unloaded -- used internally to stop loops cleanly."},
+	{Name = "Destroy", Category = "Core", Desc = "Disconnects every connection, stops running loops and removes the whole UI from the game."},
+	{Name = "AddIconLibrary / SetIconSet / GetIconSets", Category = "Icons", Desc = "Register an extra named icon pack, switch which pack string icon names resolve against, or list packs."},
+	{Name = "Lunae:Register", Category = "Lunae AI", Desc = "Lets an external handler subscribe to UI events (WindowOpened, WindowClosed, ThemeChanged, Command)."},
+}
+
+local function BuildLunaePanel(MainWindow, WindowStuff)
+	local Panel = Create("Frame", {
+		Name = "LunaePanel",
+		Size = UDim2.new(1, 0, 1, -50),
+		Position = UDim2.new(0, 0, 0, 50),
+		BackgroundColor3 = ThemeColor("Main"),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ZIndex = 55,
+		Visible = false,
+		Active = false,
+		Parent = MainWindow
+	}, {
+		Create("UIGradient", {
+			Color = ColorSequence.new(ThemeColor("Main"):Lerp(ThemeColor("Second"), 0.25), ThemeColor("Main")),
+			Rotation = 90
+		})
+	})
+
+	local Header = Create("Frame", {
+		Name = "Header",
+		Size = UDim2.new(1, -32, 0, 56),
+		Position = UDim2.new(0, 16, 0, 14),
+		BackgroundTransparency = 1,
+		ZIndex = 56,
+		Parent = Panel
+	}, {
+		SetProps(MakeElement("Image", "sparkles"), {
+			Name = "Glyph",
+			Size = UDim2.new(0, 22, 0, 22),
+			Position = UDim2.new(0, 0, 0, 2),
+			ImageColor3 = ThemeColor("Accent"),
+			ZIndex = 56
+		}),
+		SetProps(MakeElement("Label", "Lunae AI", 16), {
+			Name = "Title",
+			Position = UDim2.new(0, 32, 0, 0),
+			Size = UDim2.new(1, -32, 0, 20),
+			FontFace = Fonts.Title,
+			TextColor3 = ThemeColor("Text"),
+			ZIndex = 56
+		}),
+		SetProps(MakeElement("Label", "Offline reference for every function in Lunarion -- search or scroll below.", 12), {
+			Name = "Subtitle",
+			Position = UDim2.new(0, 32, 0, 22),
+			Size = UDim2.new(1, -60, 0, 28),
+			TextWrapped = true,
+			TextColor3 = ThemeColor("Text"):Lerp(ThemeColor("Main"), 0.35),
+			ZIndex = 56
+		})
+	})
+
+	local CloseLunae = SetChildren(SetProps(MakeElement("Button"), {
+		Name = "CloseLunae",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -16, 0, 14),
+		Size = UDim2.new(0, 26, 0, 26),
+		BackgroundTransparency = 1,
+		ZIndex = 56,
+		Parent = Panel
+	}), {
+		Create("UICorner", {CornerRadius = UDim.new(1, 0)}),
+		SetProps(MakeElement("Image", "rbxassetid://7072725342"), {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0.5, 0, 0.5, 0),
+			Size = UDim2.new(0, 13, 0, 13),
+			ImageColor3 = ThemeColor("Text"),
+			ZIndex = 56
+		})
+	})
+
+	local SearchBox = Create("TextBox", {
+		Name = "LunaeSearch",
+		Size = UDim2.new(1, -32, 0, 34),
+		Position = UDim2.new(0, 16, 0, 76),
+		BackgroundColor3 = ThemeColor("Second"),
+		BackgroundTransparency = 0.2,
+		BorderSizePixel = 0,
+		FontFace = Fonts.Body,
+		TextSize = 13,
+		Text = "",
+		TextColor3 = ThemeColor("Text"),
+		PlaceholderText = "Search functions (e.g. \"slider\", \"theme\", \"notification\")",
+		PlaceholderColor3 = ThemeColor("Text"):Lerp(ThemeColor("Main"), 0.4),
+		ClearTextOnFocus = false,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 56,
+		Parent = Panel
+	}, {
+		Create("UICorner", {CornerRadius = UDim.new(0, 8)}),
+		Create("UIPadding", {PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10)})
+	})
+
+	local List = SetProps(SetChildren(MakeElement("ScrollFrame", ThemeColor("Accent"), 4), {
+		MakeElement("List", 0, 6),
+		MakeElement("Padding", 16, 16, 16, 8)
+	}), {
+		Name = "LunaeList",
+		Size = UDim2.new(1, 0, 1, -124),
+		Position = UDim2.new(0, 0, 0, 120),
+		ZIndex = 56,
+		Parent = Panel
+	})
+	List.UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	AddConnection(List.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
+		List.CanvasSize = UDim2.new(0, 0, 0, List.UIListLayout.AbsoluteContentSize.Y + 24)
+	end)
+
+	local function MakeEntry(Entry)
+		local Card = Create("Frame", {
+			Name = "Entry",
+			Size = UDim2.new(1, -32, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			BackgroundColor3 = ThemeColor("Second"),
+			BackgroundTransparency = 0.25,
+			BorderSizePixel = 0,
+			ZIndex = 56,
+			Parent = List
+		}, {
+			Create("UICorner", {CornerRadius = UDim.new(0, 8)}),
+			Create("UIPadding", {PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12), PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10)}),
+			SetProps(MakeElement("Label", Entry.Name, 14), {
+				Name = "FnName",
+				Size = UDim2.new(1, 0, 0, 18),
+				FontFace = Fonts.Title,
+				TextColor3 = ThemeColor("Text"),
+				ZIndex = 56
+			}),
+			SetProps(MakeElement("Label", Entry.Category, 11), {
+				Name = "Category",
+				Position = UDim2.new(1, -90, 0, 1),
+				Size = UDim2.new(0, 90, 0, 16),
+				TextXAlignment = Enum.TextXAlignment.Right,
+				TextColor3 = ThemeColor("Accent"),
+				ZIndex = 56
+			}),
+			SetProps(MakeElement("Label", Entry.Desc, 12), {
+				Name = "Desc",
+				Position = UDim2.new(0, 0, 0, 20),
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				TextWrapped = true,
+				TextYAlignment = Enum.TextYAlignment.Top,
+				TextColor3 = ThemeColor("Text"):Lerp(ThemeColor("Main"), 0.3),
+				ZIndex = 56
+			})
+		})
+		return Card
+	end
+
+	for _, Entry in ipairs(Lunarion.LunaeDocs) do
+		MakeEntry(Entry)
+	end
+
+	AddConnection(SearchBox:GetPropertyChangedSignal("Text"), function()
+		local Query = string.lower(SearchBox.Text)
+		for _, Card in ipairs(List:GetChildren()) do
+			if Card.Name == "Entry" then
+				local Hit = Query == "" or string.find(string.lower(Card.FnName.Text), Query, 1, true)
+					or string.find(string.lower(Card.Desc.Text), Query, 1, true)
+					or string.find(string.lower(Card.Category.Text), Query, 1, true)
+				Card.Visible = Hit and true or false
+			end
+		end
+	end)
+
+	local PanelScale = Create("UIScale", {Name = "Scale", Scale = 0.96, Parent = Panel})
+
+	local Open = false
+	local function SetOpen(On)
+		if On == Open then
+			return
+		end
+		Open = On
+		if On then
+			Panel.Visible = true
+			WindowStuff.Active = false
+			SearchBox.Text = ""
+		end
+		Tw(Panel, 0.26, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, {BackgroundTransparency = On and 0.04 or 1})
+		Tw(PanelScale, 0.26, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, {Scale = On and 1 or 0.96})
+		if not On then
+			task.delay(0.26, function()
+				if not Open then
+					Panel.Visible = false
+					WindowStuff.Active = true
+				end
+			end)
+		end
+	end
+
+	return SetOpen
+end
+
 local function PrettyKey(Name)
 	if Name == nil or Name == "" or Name == "None" or Name == "Unknown" then
 		return "None"
@@ -2418,6 +2661,8 @@ function Lunarion:MakeWindow(WindowConfig)
 	LayoutBtn.Visible = WindowConfig.TabStyleToggle ~= false
 	local SettingsBtn = CapsuleButton("SettingsBadge", "settings", nil, 4.5)
 	SettingsBtn.Visible = WindowConfig.Settings ~= false
+	local LunaeBtn = CapsuleButton("LunaeBadge", "sparkles", nil, 4.8)
+	LunaeBtn.Visible = WindowConfig.LunaeAI ~= false
 	local MinimizeBtn = CapsuleButton("MinimizeBadge", "rbxassetid://7072719338", nil, 5)
 	local CloseBtn = CapsuleButton("CloseBadge", "rbxassetid://7072725342", nil, 6)
 
@@ -2437,7 +2682,7 @@ function Lunarion:MakeWindow(WindowConfig)
 			SortOrder = Enum.SortOrder.LayoutOrder,
 			Padding = UDim.new(0, 2)
 		}),
-		SearchBtn, SearchField, CapsuleSep, LayoutBtn, SettingsBtn, MinimizeBtn, CloseBtn
+		SearchBtn, SearchField, CapsuleSep, LayoutBtn, SettingsBtn, LunaeBtn, MinimizeBtn, CloseBtn
 	}), "Second")
 
 	local function HoverFill(Btn, Fill, IconHover)
@@ -2467,6 +2712,7 @@ function Lunarion:MakeWindow(WindowConfig)
 	HoverFill(LayoutBtn, SoftFill)
 	HoverFill(MinimizeBtn, SoftFill)
 	HoverFill(SettingsBtn, SoftFill)
+	HoverFill(LunaeBtn, SoftFill)
 	HoverFill(CloseBtn, function() return Color3.fromRGB(232, 76, 61) end, Color3.fromRGB(255, 255, 255))
 
 	local DragPoint = SetProps(MakeElement("TFrame"), {
@@ -2587,6 +2833,14 @@ function Lunarion:MakeWindow(WindowConfig)
 		DragPoint,
 		WindowStuff
 	}), "Main")
+
+	local SetLunaeOpen = BuildLunaePanel(MainWindow, WindowStuff)
+	AddConnection(LunaeBtn.MouseButton1Click, function()
+		SetLunaeOpen(true)
+	end)
+	AddConnection(MainWindow.LunaePanel.CloseLunae.MouseButton1Click, function()
+		SetLunaeOpen(false)
+	end)
 
 	-- Logo (next to the script name) + Subtitle (beside the name) + Author (under the name)
 	local LogoValue = WindowConfig.Logo or (WindowConfig.ShowIcon and WindowConfig.Icon) or nil
@@ -3518,9 +3772,16 @@ function Lunarion:MakeWindow(WindowConfig)
 
 	-- Follower loop: keeps the search on its layer, glued to the window; hides it (and the resize grip)
 	-- whenever the window is minimized, closed or in the middle of an animation.
+	-- Only acts on an actual state change (not every single frame), since Idle is almost always the
+	-- same value frame-to-frame -- cuts this down to near-zero cost while the window just sits open.
 	local ResizeGrip
+	local LastIdle = nil
 	AddConnection(RunService.RenderStepped, function()
 		local Idle = MainWindow.Visible and not Minimized and not MinimizeBusy and not Animating and not UIHidden
+		if Idle == LastIdle then
+			return
+		end
+		LastIdle = Idle
 		if not Idle and SearchBox and SearchBox.TextEditable then
 			SetSearchExpanded(false)
 		end
@@ -6577,6 +6838,176 @@ function Lunarion:MakeWindow(WindowConfig)
 				end
 				return Colorpicker
 			end
+
+			-- A static (non-interactive) meter: a thin track with a filled bar that eases to whatever
+			-- value :Set() gives it. For load states, health/ammo readouts, progress toward a goal, etc.
+			-- Config: Name, Value (0-1, default 0), Color (defaults to the theme Accent), Flag (optional, saved)
+			function ElementFunction:AddProgressBar(ProgressConfig)
+				ProgressConfig = ProgressConfig or {}
+				ProgressConfig.Name = ProgressConfig.Name or "Progress"
+				ProgressConfig.Value = math.clamp(tonumber(ProgressConfig.Value) or 0, 0, 1)
+				if ProgressConfig.Save == nil then ProgressConfig.Save = ProgressConfig.Flag ~= nil end
+
+				local Progress = {Value = ProgressConfig.Value, Save = ProgressConfig.Save, Type = "ProgressBar"}
+
+				local Fill = Create("Frame", {
+					Name = "Fill",
+					Size = UDim2.new(Progress.Value, 0, 1, 0),
+					BackgroundColor3 = ProgressConfig.Color or ThemeColor("Accent"),
+					BorderSizePixel = 0,
+					ZIndex = 2
+				}, {
+					Create("UICorner", {CornerRadius = UDim.new(1, 0)})
+				})
+
+				local Track = AddThemeObject(SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(255, 255, 255), 1, 0), {
+					Name = "Track",
+					AnchorPoint = Vector2.new(1, 0.5),
+					Position = UDim2.new(1, -12, 0.5, 0),
+					Size = UDim2.new(0.42, 0, 0, 8),
+					BackgroundTransparency = 0.75,
+					ClipsDescendants = true
+				}), {
+					Fill
+				}), "TextDark")
+
+				local ProgressFrame = AddThemeObject(SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(255, 255, 255), 0, 10), {
+					Size = UDim2.new(1, 0, 0, 38),
+					Parent = ItemParent
+				}), {
+					AddThemeObject(SetProps(MakeElement("Label", ProgressConfig.Name, 15), {
+						Size = UDim2.new(1, -170, 1, 0),
+						Position = UDim2.new(0, 12, 0, 0),
+						FontFace = Fonts.Body,
+						Name = "Content"
+					}), "Text"),
+					AddThemeObject(MakeElement("Stroke"), "Stroke"),
+					Track
+				}), "Second")
+
+				function Progress:Set(Value, NoTween)
+					Value = math.clamp(tonumber(Value) or 0, 0, 1)
+					Progress.Value = Value
+					if NoTween then
+						Fill.Size = UDim2.new(Value, 0, 1, 0)
+					else
+						Tw(Fill, 0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out, {Size = UDim2.new(Value, 0, 1, 0)})
+					end
+					AutoSave()
+				end
+
+				if ProgressConfig.Flag then
+					Lunarion.Flags[ProgressConfig.Flag] = Progress
+					ApplySaved(ProgressConfig.Flag, Progress)
+				end
+				return Progress
+			end
+
+			-- A segmented control: a row of equal-width buttons inside one pill, exactly one active at a
+			-- time (like iOS's UISegmentedControl). Good for short mutually-exclusive choices where a
+			-- dropdown is overkill. Config: Name, Options (array of strings), Default, Flag, Callback(Selected)
+			function ElementFunction:AddSegmented(SegmentedConfig)
+				SegmentedConfig = SegmentedConfig or {}
+				SegmentedConfig.Options = SegmentedConfig.Options or {"One", "Two"}
+				SegmentedConfig.Default = SegmentedConfig.Default or SegmentedConfig.Options[1]
+				SegmentedConfig.Callback = SegmentedConfig.Callback or function() end
+				if SegmentedConfig.Save == nil then SegmentedConfig.Save = SegmentedConfig.Flag ~= nil end
+
+				local Segmented = {Value = SegmentedConfig.Default, Save = SegmentedConfig.Save, Type = "Segmented"}
+
+				local Rail = AddThemeObject(SetProps(MakeElement("RoundFrame", Color3.fromRGB(255, 255, 255), 1, 0), {
+					Name = "Rail",
+					Size = UDim2.new(1, -24, 0, 30),
+					Position = UDim2.new(0, 12, 0, 0),
+					BackgroundTransparency = 0.75
+				}), "TextDark")
+
+				local SegmentedFrame = AddThemeObject(SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(255, 255, 255), 0, 10), {
+					Size = UDim2.new(1, 0, 0, SegmentedConfig.Name and 68 or 44),
+					Parent = ItemParent
+				}), {
+					AddThemeObject(MakeElement("Stroke"), "Stroke"),
+					Rail
+				}), "Second")
+
+				if SegmentedConfig.Name then
+					Rail.Position = UDim2.new(0, 12, 0, 32)
+					AddThemeObject(SetProps(MakeElement("Label", SegmentedConfig.Name, 15), {
+						Size = UDim2.new(1, -24, 0, 20),
+						Position = UDim2.new(0, 12, 0, 6),
+						FontFace = Fonts.Body,
+						Name = "Content",
+						Parent = SegmentedFrame
+					}), "Text")
+				end
+
+				local Indicator = Create("Frame", {
+					Name = "Indicator",
+					Size = UDim2.new(1 / #SegmentedConfig.Options, -4, 1, -4),
+					Position = UDim2.new(0, 2, 0, 2),
+					BackgroundColor3 = ThemeColor("Accent"),
+					BorderSizePixel = 0,
+					ZIndex = 2,
+					Parent = Rail
+				}, {
+					Create("UICorner", {CornerRadius = UDim.new(1, 0)})
+				})
+
+				local Buttons = {}
+				for Index, OptionText in ipairs(SegmentedConfig.Options) do
+					local Btn = SetChildren(SetProps(MakeElement("Button"), {
+						Name = "Seg" .. Index,
+						Size = UDim2.new(1 / #SegmentedConfig.Options, 0, 1, 0),
+						Position = UDim2.new((Index - 1) / #SegmentedConfig.Options, 0, 0, 0),
+						ZIndex = 3
+					}), {
+						AddThemeObject(SetProps(MakeElement("Label", OptionText, 13), {
+							Size = UDim2.new(1, 0, 1, 0),
+							TextXAlignment = Enum.TextXAlignment.Center,
+							Name = "Lbl"
+						}), "Text")
+					})
+					Btn.Parent = Rail
+					Buttons[Index] = Btn
+				end
+
+				local function MoveIndicator(Animate)
+					local Index = table.find(SegmentedConfig.Options, Segmented.Value) or 1
+					local N = #SegmentedConfig.Options
+					local Target = UDim2.new((Index - 1) / N, 2, 0, 2)
+					if Animate then
+						Tw(Indicator, 0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out, {Position = Target})
+					else
+						Indicator.Position = Target
+					end
+				end
+				MoveIndicator(false)
+
+				function Segmented:Set(Value, NoCallback)
+					if not table.find(SegmentedConfig.Options, Value) then
+						return
+					end
+					Segmented.Value = Value
+					MoveIndicator(true)
+					if not NoCallback then
+						task.spawn(RunCallback, SegmentedFrame, SegmentedConfig.Callback, Value)
+					end
+					AutoSave()
+				end
+
+				for Index, Btn in ipairs(Buttons) do
+					AddConnection(Btn.MouseButton1Click, function()
+						Segmented:Set(SegmentedConfig.Options[Index])
+					end)
+				end
+
+				if SegmentedConfig.Flag then
+					Lunarion.Flags[SegmentedConfig.Flag] = Segmented
+					ApplySaved(SegmentedConfig.Flag, Segmented)
+				end
+				return Segmented
+			end
+
 			-- New names (the Add* names). Old Add* names still work below.
 			ElementFunction.Text = ElementFunction.AddLabel
 			ElementFunction.Warn = ElementFunction.AddWarningLabel
@@ -6597,6 +7028,10 @@ function Lunarion:MakeWindow(WindowConfig)
 			ElementFunction.Colorpicker = ElementFunction.AddColorpicker
 			ElementFunction.ColorPicker = ElementFunction.AddColorpicker
 			ElementFunction.AddColorPicker = ElementFunction.AddColorpicker
+			ElementFunction.Progress = ElementFunction.AddProgressBar
+			ElementFunction.AddMeter = ElementFunction.AddProgressBar
+			ElementFunction.AddSegment = ElementFunction.AddSegmented
+			ElementFunction.AddTabs = ElementFunction.AddSegmented
 
 			for SearchFnName, SearchFn in pairs(ElementFunction) do
 				ElementFunction[SearchFnName] = function(SearchSelf, SearchConfig, ...)
