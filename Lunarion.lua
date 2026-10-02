@@ -5134,51 +5134,48 @@ function Lunarion:MakeWindow(WindowConfig)
 						return Side
 					end
 
-					-- toggle side: small track, knob stretches while it slides then settles back into a circle
-					local KnobOff, KnobOn, KnobStretch, KnobSize = 3, 21, 20, 12
-					local KnobToken = 0
-					local Knob = Create("Frame", {
-						Name = "Knob", AnchorPoint = Vector2.new(0, 0.5),
-						Position = UDim2.new(0, KnobOff, 0.5, 0), Size = UDim2.new(0, KnobSize, 0, KnobSize),
-						BackgroundColor3 = ThemeColor("TextDark"), BorderSizePixel = 0
-					}, {Create("UICorner", {CornerRadius = UDim.new(1, 0)})})
-					local TrackStroke = Create("UIStroke", {Thickness = 1.2, Color = ThemeColor("TextDark")})
-					local Track = Create("Frame", {
-						Name = "Track", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0),
-						Size = UDim2.new(0, 36, 0, 18), BackgroundTransparency = 1, BorderSizePixel = 0, Parent = Frame
-					}, {Create("UICorner", {CornerRadius = UDim.new(1, 0)}), TrackStroke, Knob})
-
-					local function MoveKnob(On, Animate)
-						KnobToken = KnobToken + 1
-						local MyToken = KnobToken
-						local Target = On and KnobOn or KnobOff
-						if not Animate then
-							Knob.Size = UDim2.new(0, KnobSize, 0, KnobSize)
-							Knob.Position = UDim2.new(0, Target, 0.5, 0)
-							return
-						end
-						local Left = Knob.Position.X.Offset
-						local GrowLeft = On and Left or math.min(Left, KnobOn + KnobSize - KnobStretch)
-						Tw(Knob, 0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, {
-							Size = UDim2.new(0, KnobStretch, 0, KnobSize - 2), Position = UDim2.new(0, GrowLeft, 0.5, 0)
-						})
-						task.delay(0.12, function()
-							if MyToken ~= KnobToken or not Knob.Parent then return end
-							Tw(Knob, 0.26, Enum.EasingStyle.Quint, Enum.EasingDirection.Out, {
-								Size = UDim2.new(0, KnobSize, 0, KnobSize), Position = UDim2.new(0, Target, 0.5, 0)
-							})
-						end)
+					-- toggle side: a LATCHING button (different from the normal toggle). When it turns on, a flat accent fill
+					-- grows out from the centre of the half, the label flips to a readable colour and a small dot pops in.
+					local function Readable(Color)
+						local Luma = 0.299 * Color.R + 0.587 * Color.G + 0.114 * Color.B
+						return Luma > 0.62 and Color3.fromRGB(20, 20, 24) or Color3.fromRGB(255, 255, 255)
 					end
-					local function Refresh(Animate, Moved)
+					Label.ZIndex = 2
+					Label.Size = UDim2.new(1, -34, 1, 0)
+					local Fill = Create("Frame", {
+						Name = "Fill", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0),
+						Size = UDim2.new(0, 0, 1, -2), BackgroundColor3 = ThemeColor("Accent"), BackgroundTransparency = 1,
+						BorderSizePixel = 0, ZIndex = 1, Parent = Frame
+					}, {Create("UICorner", {CornerRadius = UDim.new(0, 9)})})
+					local DotRing = Create("UIStroke", {Thickness = 1.4, Color = ThemeColor("TextDark")})
+					local Dot = Create("Frame", {
+						Name = "Dot", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0),
+						Size = UDim2.new(0, 0, 0, 0), BackgroundColor3 = Color3.fromRGB(255, 255, 255), BorderSizePixel = 0
+					}, {Create("UICorner", {CornerRadius = UDim.new(1, 0)})})
+					Create("Frame", {
+						Name = "Indicator", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0),
+						Size = UDim2.new(0, 12, 0, 12), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 2, Parent = Frame
+					}, {Create("UICorner", {CornerRadius = UDim.new(1, 0)}), DotRing, Dot})
+
+					local function Refresh(Animate)
 						local On = Side.Value
 						local Accent = ThemeColor("Accent")
-						local Off = ThemeColor("TextDark")
-						local Time = Animate and 0.3 or 0
-						Track.BackgroundColor3 = Accent
-						Tw(Track, Time, Enum.EasingStyle.Quint, Enum.EasingDirection.Out, {BackgroundTransparency = On and 0 or 1})
-						Tw(TrackStroke, Time, Enum.EasingStyle.Quint, Enum.EasingDirection.Out, {Color = On and Accent or Off})
-						Tw(Knob, Time, Enum.EasingStyle.Quint, Enum.EasingDirection.Out, {BackgroundColor3 = On and Color3.fromRGB(255, 255, 255) or Off})
-						if Moved ~= false then MoveKnob(On, Animate) end
+						local Ink = Readable(Accent)
+						local Time = Animate and 0.32 or 0
+						Fill.BackgroundColor3 = Accent
+						if On then
+							Fill.BackgroundTransparency = 0
+						end
+						Tw(Fill, Time, Enum.EasingStyle.Quint, Enum.EasingDirection.Out, {Size = UDim2.new(On and 1 or 0, On and -2 or 0, 1, -2)})
+						if not On then
+							task.delay(Time, function()
+								if not Side.Value and Fill.Parent then Fill.BackgroundTransparency = 1 end
+							end)
+						end
+						Tw(Label, Time, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, {TextColor3 = On and Ink or ThemeColor("Text")})
+						Tw(DotRing, Time, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, {Color = On and Ink or ThemeColor("TextDark")})
+						Dot.BackgroundColor3 = Ink
+						Tw(Dot, Animate and 0.28 or 0, Enum.EasingStyle.Back, Enum.EasingDirection.Out, {Size = On and UDim2.new(0, 6, 0, 6) or UDim2.new(0, 0, 0, 0)})
 					end
 					function Side:Set(Value)
 						Side.Value = Value and true or false
@@ -5187,7 +5184,7 @@ function Lunarion:MakeWindow(WindowConfig)
 					end
 					Refresh(false)
 					Side:Set(Side.Value)
-					table.insert(Lunarion.ThemeListeners, function() Refresh(true, false) end)
+					table.insert(Lunarion.ThemeListeners, function() Refresh(true) end)
 					AddConnection(Click.MouseButton1Click, function()
 						Side:Set(not Side.Value)
 						AutoSave()
