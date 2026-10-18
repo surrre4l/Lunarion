@@ -1,43 +1,21 @@
-Lunarion License
+MIT License
 
-Copyright © 2026 Lunarion contributors. All rights reserved.
+Copyright (c) 2026 Surreal Script's
 
-1. Grant of License
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-Permission is granted to use Lunarion for personal, educational, and development purposes, subject to the terms of this license.
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-2. Restrictions
-
-You may not:
-
-- Claim Lunarion or its original source code as your own.
-- Sell, sublicense, or commercially redistribute Lunarion without prior written permission from its copyright holder.
-- Remove or alter existing copyright notices or attribution.
-- Distribute modified versions as the official Lunarion library.
-- Use Lunarion to violate applicable laws, platform rules, or the rights of others.
-
-3. Modifications
-
-You may modify Lunarion for your own use. Modified versions must retain the original copyright notices and must not be presented as official releases.
-
-4. Attribution
-
-When publicly showcasing or using Lunarion in a project, provide reasonable credit to Lunarion and its original contributors.
-
-5. Ownership
-
-Lunarion and its original source code remain the intellectual property of their respective copyright holder(s). This license does not transfer ownership.
-
-6. Termination
-
-This license terminates automatically if you violate its terms. Upon termination, you must stop using and distributing the library.
-
-7. Disclaimer
-
-Lunarion is provided “AS IS”, without warranties of any kind, express or implied. The copyright holder(s) are not liable for damages arising from its use, to the extent permitted by applicable law.
-
-8. Permission Requests
-
-For permissions not covered by this license, contact the copyright holder.
-
-End of Lunarion License
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
